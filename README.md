@@ -55,34 +55,6 @@ Sebuah aplikasi Android yang dibangun dalam Java untuk menemukan dan menikmati m
 
 ## 🏗️ Arsitektur
 
-### Struktur Proyek
-```
-app/
-├── activities/          # Kelas Activity
-│   ├── SplashActivity.java
-│   ├── LoginActivity.java
-│   └── MainActivity.java
-├── fragments/           # Kelas Fragment  
-│   ├── HomeFragment.java
-│   ├── SearchFragment.java
-│   └── PlaylistFragment.java
-├── adapters/            # Adapter RecyclerView
-│   └── SongAdapter.java
-├── models/              # Model data
-│   ├── Song.java
-│   ├── User.java
-│   └── DeezerResponse.java
-├── database/            # Database lokal
-│   ├── DatabaseHelper.java
-│   └── SongDAO.java
-├── network/             # Integrasi API
-│   ├── DeezerAPI.java
-│   └── RetrofitClient.java
-└── utils/               # Kelas utilitas
-    ├── ThemeManager.java
-    └── MediaPlayerManager.java
-```
-
 ### Dependencies
 - **Retrofit 2.9.0**: HTTP client untuk panggilan API
 - **OkHttp 4.12.0**: Lapisan jaringan dengan logging
