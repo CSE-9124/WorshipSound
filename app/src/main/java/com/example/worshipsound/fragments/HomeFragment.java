@@ -23,7 +23,9 @@ import com.example.worshipsound.database.SongDAO;
 import com.example.worshipsound.models.DeezerResponse;
 import com.example.worshipsound.models.Song;
 import com.example.worshipsound.network.RetrofitClient;
+import com.example.worshipsound.network.SpiritualMusicNetworkManager;
 import com.example.worshipsound.utils.MediaPlayerManager;
+import com.example.worshipsound.utils.SpiritualSongFilter;
 import com.example.worshipsound.utils.ThemeManager;
 
 import java.util.ArrayList;
@@ -62,6 +64,7 @@ public class HomeFragment extends Fragment implements SongAdapter.OnSongClickLis
     
     // API and Network
     private RetrofitClient retrofitClient;
+    private SpiritualMusicNetworkManager spiritualNetworkManager;
     private final String[] spiritualKeywords = {
         "gospel", "worship", "christian", "spiritual", "praise", 
         "hymn", "jesus", "god", "church", "prayer"
@@ -80,6 +83,7 @@ public class HomeFragment extends Fragment implements SongAdapter.OnSongClickLis
         mediaPlayerManager = MediaPlayerManager.getInstance();
         songDAO = SongDAO.getInstance(requireContext());
         retrofitClient = RetrofitClient.getInstance();
+        spiritualNetworkManager = SpiritualMusicNetworkManager.getInstance();
         executorService = Executors.newSingleThreadExecutor();
         
         // Initialize data
@@ -163,38 +167,31 @@ public class HomeFragment extends Fragment implements SongAdapter.OnSongClickLis
         showLoading(true);
         hideEmptyState();
         
-        // Select random spiritual keyword
-        String keyword = getRandomSpiritualKeyword();
-        
-        Call<DeezerResponse> call = retrofitClient.getDeezerAPI().searchTracks(keyword, 20, 0);
-        
-        call.enqueue(new Callback<DeezerResponse>() {
+        spiritualNetworkManager.getTrendingSpiritualSongs(new SpiritualMusicNetworkManager.SpiritualSearchCallback() {
             @Override
-            public void onResponse(@NonNull Call<DeezerResponse> call, @NonNull Response<DeezerResponse> response) {
+            public void onSpiritualSongsFound(List<Song> songs, int totalFound, int filtered) {
                 showLoading(false);
-                
-                if (response.isSuccessful() && response.body() != null) {
-                    DeezerResponse deezerResponse = response.body();
-                    
-                    if (deezerResponse.hasData()) {
-                        List<Song> songs = deezerResponse.getSongs();
-                        updateTrendingSongs(songs);
-                        Log.d(TAG, "Loaded " + songs.size() + " trending songs");
-                    } else {
-                        showEmptyState("No trending songs found");
-                        Log.w(TAG, "No songs found in API response");
-                    }
-                } else {
-                    handleNetworkError("Failed to load trending songs");
-                    Log.e(TAG, "API request failed: " + response.code());
-                }
+                updateTrendingSongs(songs);
+                Log.d(TAG, "Loaded " + filtered + " spiritual songs from " + totalFound + " total");
             }
-
+            
             @Override
-            public void onFailure(@NonNull Call<DeezerResponse> call, @NonNull Throwable t) {
+            public void onNoSpiritualSongsFound(String message) {
                 showLoading(false);
-                handleNetworkError("Network error: " + t.getMessage());
-                Log.e(TAG, "Network request failed", t);
+                showEmptyState(message);
+                Log.w(TAG, "No spiritual songs found: " + message);
+            }
+            
+            @Override
+            public void onError(String error) {
+                showLoading(false);
+                handleNetworkError(error);
+                Log.e(TAG, "Error loading spiritual songs: " + error);
+            }
+            
+            @Override
+            public void onLoading(boolean isLoading) {
+                // Loading state is handled by the outer showLoading calls
             }
         });
     }
@@ -203,28 +200,32 @@ public class HomeFragment extends Fragment implements SongAdapter.OnSongClickLis
      * Refresh trending songs
      */
     private void refreshTrendingSongs() {
-        Call<DeezerResponse> call = retrofitClient.getDeezerAPI().searchTracks(getRandomSpiritualKeyword(), 20, 0);
-        
-        call.enqueue(new Callback<DeezerResponse>() {
+        spiritualNetworkManager.getTrendingSpiritualSongs(new SpiritualMusicNetworkManager.SpiritualSearchCallback() {
             @Override
-            public void onResponse(@NonNull Call<DeezerResponse> call, @NonNull Response<DeezerResponse> response) {
+            public void onSpiritualSongsFound(List<Song> songs, int totalFound, int filtered) {
                 swipeRefreshLayout.setRefreshing(false);
-                
-                if (response.isSuccessful() && response.body() != null && response.body().hasData()) {
-                    List<Song> songs = response.body().getSongs();
-                    updateTrendingSongs(songs);
-                    Toast.makeText(requireContext(), "Songs refreshed!", Toast.LENGTH_SHORT).show();
-                    Log.d(TAG, "Refreshed with " + songs.size() + " songs");
-                } else {
-                    Toast.makeText(requireContext(), "Failed to refresh songs", Toast.LENGTH_SHORT).show();
-                }
+                updateTrendingSongs(songs);
+                Toast.makeText(requireContext(), "Songs refreshed! Found " + filtered + " spiritual songs", Toast.LENGTH_SHORT).show();
+                Log.d(TAG, "Refreshed with " + filtered + " spiritual songs from " + totalFound + " total");
             }
-
+            
             @Override
-            public void onFailure(@NonNull Call<DeezerResponse> call, @NonNull Throwable t) {
+            public void onNoSpiritualSongsFound(String message) {
                 swipeRefreshLayout.setRefreshing(false);
-                Toast.makeText(requireContext(), "Network error during refresh", Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "Refresh failed", t);
+                Toast.makeText(requireContext(), "No spiritual songs found, try again", Toast.LENGTH_SHORT).show();
+                Log.w(TAG, "Refresh failed: " + message);
+            }
+            
+            @Override
+            public void onError(String error) {
+                swipeRefreshLayout.setRefreshing(false);
+                Toast.makeText(requireContext(), "Failed to refresh songs", Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "Refresh error: " + error);
+            }
+            
+            @Override
+            public void onLoading(boolean isLoading) {
+                // Refresh loading is handled by SwipeRefreshLayout
             }
         });
     }

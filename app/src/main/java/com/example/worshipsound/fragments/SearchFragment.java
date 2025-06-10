@@ -25,7 +25,9 @@ import com.example.worshipsound.database.SongDAO;
 import com.example.worshipsound.models.DeezerResponse;
 import com.example.worshipsound.models.Song;
 import com.example.worshipsound.network.RetrofitClient;
+import com.example.worshipsound.network.SpiritualMusicNetworkManager;
 import com.example.worshipsound.utils.MediaPlayerManager;
+import com.example.worshipsound.utils.SpiritualSongFilter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,6 +62,7 @@ public class SearchFragment extends Fragment implements SongAdapter.OnSongClickL
     
     // API and Network
     private RetrofitClient retrofitClient;
+    private SpiritualMusicNetworkManager spiritualNetworkManager;
     private Call<DeezerResponse> currentCall;
     
     // Search state
@@ -78,6 +81,7 @@ public class SearchFragment extends Fragment implements SongAdapter.OnSongClickL
         mediaPlayerManager = MediaPlayerManager.getInstance();
         songDAO = SongDAO.getInstance(requireContext());
         retrofitClient = RetrofitClient.getInstance();
+        spiritualNetworkManager = SpiritualMusicNetworkManager.getInstance();
         executorService = Executors.newSingleThreadExecutor();
         
         // Initialize data
@@ -212,7 +216,7 @@ public class SearchFragment extends Fragment implements SongAdapter.OnSongClickL
         hideSearchHint();
         
         // Add spiritual context to search query
-        String enhancedQuery = query + " worship spiritual gospel christian";
+        String enhancedQuery = SpiritualSongFilter.enhanceQueryForSpiritual(query);
         
         currentCall = retrofitClient.getDeezerAPI().searchTracks(enhancedQuery, 50, 0);
         
@@ -220,19 +224,35 @@ public class SearchFragment extends Fragment implements SongAdapter.OnSongClickL
             @Override
             public void onResponse(@NonNull Call<DeezerResponse> call, @NonNull Response<DeezerResponse> response) {
                 if (call.isCanceled()) return;
-                
+
                 showLoading(false);
-                
+
                 if (response.isSuccessful() && response.body() != null) {
                     DeezerResponse deezerResponse = response.body();
-                    
-                    if (deezerResponse.hasData()) {
-                        List<Song> songs = deezerResponse.getSongs();
-                        updateSearchResults(songs);
-                        Log.d(TAG, "Found " + songs.size() + " songs for query: " + query);
+
+                    // Check if response has data
+                    if (deezerResponse.getSongs() != null) {
+                        List<Song> allSongs = deezerResponse.getSongs();
+
+                        // Even if songs list is empty, it's still a valid response
+                        if (allSongs.isEmpty()) {
+                            showEmptyState("No songs found for \"" + query + "\". Try a different search term.");
+                            Log.w(TAG, "No songs found in API response for query: " + query);
+                            return;
+                        }
+
+                        List<Song> spiritualSongs = SpiritualSongFilter.filterSpiritualSongs(allSongs);
+
+                        if (!spiritualSongs.isEmpty()) {
+                            updateSearchResults(spiritualSongs);
+                            Log.d(TAG, "Found " + spiritualSongs.size() + " spiritual songs from " + allSongs.size() + " total for query: " + query);
+                        } else {
+                            showEmptyState("No spiritual songs found for \"" + query + "\". Try searching for gospel, worship, or christian music.");
+                            Log.w(TAG, "No spiritual songs found for query: " + query);
+                        }
                     } else {
-                        showEmptyState("No songs found for \"" + query + "\"");
-                        Log.w(TAG, "No songs found for query: " + query);
+                        handleSearchError("Failed to search songs");
+                        Log.e(TAG, "Search API response missing data field: " + response.code());
                     }
                 } else {
                     handleSearchError("Failed to search songs");

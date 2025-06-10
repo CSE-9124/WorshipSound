@@ -1,5 +1,6 @@
 package com.example.worshipsound.models;
 
+import com.example.worshipsound.utils.SpiritualSongFilter;
 import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
@@ -37,6 +38,51 @@ public class DeezerResponse {
 
     public boolean hasData() {
         return songs != null && !songs.isEmpty();
+    }
+
+    /**
+     * Get only spiritual/worship songs from the response
+     * @return Filtered list containing only spiritual songs
+     */
+    public List<Song> getSpiritualSongs() {
+        if (songs == null || songs.isEmpty()) {
+            return songs;
+        }
+        return SpiritualSongFilter.filterSpiritualSongs(songs);
+    }
+
+    /**
+     * Check if response has spiritual songs
+     * @return true if contains at least one spiritual song
+     */
+    public boolean hasSpiritualData() {
+        List<Song> spiritualSongs = getSpiritualSongs();
+        return spiritualSongs != null && !spiritualSongs.isEmpty();
+    }
+
+    /**
+     * Get count of spiritual songs in response
+     * @return Number of spiritual songs
+     */
+    public int getSpiritualSongCount() {
+        List<Song> spiritualSongs = getSpiritualSongs();
+        return spiritualSongs != null ? spiritualSongs.size() : 0;
+    }
+
+    /**
+     * Filter songs to only include high-quality spiritual content
+     * @param minimumScore Minimum spiritual score (0-100)
+     * @return Filtered list of high-quality spiritual songs
+     */
+    public List<Song> getHighQualitySpiritualSongs(int minimumScore) {
+        List<Song> spiritualSongs = getSpiritualSongs();
+        if (spiritualSongs == null || spiritualSongs.isEmpty()) {
+            return spiritualSongs;
+        }
+
+        return spiritualSongs.stream()
+            .filter(song -> SpiritualSongFilter.calculateSpiritualScore(song) >= minimumScore)
+            .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
